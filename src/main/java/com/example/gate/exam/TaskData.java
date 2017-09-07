@@ -11,7 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public class TaskData {
     private String question;
-    private String url;
+    private String pictureUrl;
     private List<String> options;
     private List<String> answer;
 }
