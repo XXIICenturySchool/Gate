@@ -2,6 +2,7 @@ package com.example.gate;
 
 import com.example.gate.exam.Exam;
 import com.example.gate.exam.ExamData;
+import com.example.gate.exam.ExamResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,8 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import javax.servlet.http.HttpSession;
+import java.awt.*;
 import java.net.URI;
 import java.net.URL;
 import java.util.Arrays;
@@ -23,9 +26,29 @@ public class UIController {
     @Autowired
     private DiscoveryClient discoveryClient;
 
+    @GetMapping("/getAllExamJson")
+    public ExamData getAllExamJson(HttpSession session){
+        return (ExamData) session.getAttribute("examData");
+    }
+
+    @GetMapping("/sendResult")
+    public  void sendResult(@RequestBody ExamResult result){
+        //По известному алгоритму сходить на маплогин за учителем
+        Teacher teacher;
+
+        String[] mails = teacher.getMails().split(",");
+        for (String mail : mails) {
+            sendMail(result, teacher);
+        }
+    }
+
+    private void sendMail(ExamResult result, Teacher teacher) {
+        //send mail
+    }
+
     @SneakyThrows
     @GetMapping("/startExam")
-    public ExamData startExam(@RequestParam int examId, @RequestParam int teacherId){
+    public ExamData startExam(@RequestParam int examId, @RequestParam int teacherId, HttpSession session){
         //1. найти адрес клиента у maplogin
         ServiceInstance serviceInstance = Services.MAPLOGIN.pickRandomInstance(discoveryClient);
         URL url = serviceInstance.getUri().toURL();
@@ -68,25 +91,14 @@ public class UIController {
             //Шаг 2 - забрать у этого сервиса экзамен!
 
             if (loginResponse.getStatusCode() == HttpStatus.OK) {
-               return objectMapper.readValue(holderResponce.getBody(), ExamData.class);
+                ExamData examData = objectMapper.readValue(holderResponce.getBody(), ExamData.class);
+                session.setAttribute("examData", examData);
+               //return objectMapper.readValue(holderResponce.getBody(), ExamData.class);
             }
             else throw new RuntimeException("Bad exam response");
-
-
-
-
-
-
-
-
-
         } else if (loginResponse.getStatusCode() == HttpStatus.UNAUTHORIZED) {
-            throw new RuntimeException("not found!");
+            throw new RuntimeException("exam not found!");
         }
-
-
-
-
         return null;
     }
 }
