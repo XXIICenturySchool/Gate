@@ -63,6 +63,11 @@
 
 <form id="examSelectorForm">
     <div class="form-group">
+        <label for="studentNameInput">Student name</label>
+        <input type="text" class="form-control" id="studentNameInput"
+               placeholder="Enter your name">
+    </div>
+    <div class="form-group">
         <label for="teacherIdInput">Teacher Id</label>
         <input type="text" class="form-control" id="teacherIdInput"
                placeholder="Enter teacherId">
@@ -128,10 +133,12 @@
 
     let teacherId = '';
     let examId = '';
+    let studentName = '';
 
     function fetchExam() {
         teacherId = document.querySelector('#teacherIdInput').value;
         examId = document.querySelector('#examIdInput').value;
+        studentName = document.querySelector('#studentNameInput').value;
 
         return fetch(`/exam/getExam?teacherId=${teacherId}&examId=${examId}`)
             .then(res => res.json());
@@ -162,6 +169,7 @@
                 numberOfSkippedAnswers,
                 numberOfWrongAnswers,
                 seconds,
+                name: studentName,
             };
 
             fetch('/exam/sendResult', {
