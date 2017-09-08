@@ -26,13 +26,12 @@ public enum Services {
 
     public static Services getServiceById(String id){
         for (Services s : Services.values()) {
-            if(s.id.equals(id)) return  s;
+            if(s.id.equalsIgnoreCase(id)) return  s;
         }
         return null;
     }
 
     private static final Random random = new Random(new Date().getTime());
-
     private static ServiceInstance pickRandomInstanceFromList(List<ServiceInstance> instances) {
         return instances.get(Math.abs(random.nextInt(instances.size()) % instances.size()));
     }

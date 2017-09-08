@@ -24,17 +24,35 @@ import java.util.Arrays;
 @RequestMapping("/exam")
 public class UIController {
     @Autowired
+    private ObjectMapper objectMapper;
+    @Autowired
     private DiscoveryClient discoveryClient;
 
-    @GetMapping("/getAllExamJson")
+    @GetMapping("/getAllExamJSON")
     public ExamData getAllExamJson(HttpSession session){
         return (ExamData) session.getAttribute("examData");
     }
 
-    @GetMapping("/sendResult")
+    @SneakyThrows
+    @PostMapping("/sendResult")
     public  void sendResult(@RequestBody ExamResult result){
         //По известному алгоритму сходить на маплогин за учителем
+        ServiceInstance serviceInstance = Services.MAPLOGIN.pickRandomInstance(discoveryClient);
+        URL url = serviceInstance.getUri().toURL();
+        url = new URL(url.toString()+"/maplogin/teachers/search/findTeacherById?id="+result.getTeacherId());
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<String> teacherResponse = restTemplate.exchange(url.toString(), HttpMethod.GET, entity, String.class);
         Teacher teacher;
+
+        if(teacherResponse.getStatusCode()==HttpStatus.OK){
+            teacher = objectMapper.readValue(teacherResponse.getBody(), Teacher.class);
+        }
+        else throw new RuntimeException("No such teacher!!!");
 
         String[] mails = teacher.getMails().split(",");
         for (String mail : mails) {
@@ -46,10 +64,18 @@ public class UIController {
         //send mail
     }
 
+    @GetMapping("/getExam")
+    public ExamData getExam(@RequestParam int examId, @RequestParam int teacherId, HttpSession session){
+        startExam(examId, teacherId, session);
+        ExamData examData=  (ExamData) session.getAttribute("examData");
+        session.removeAttribute("examData");
+        return examData;
+    }
+
     @SneakyThrows
     @GetMapping("/startExam")
-    public ExamData startExam(@RequestParam int examId, @RequestParam int teacherId, HttpSession session){
-        //1. найти адрес клиента у maplogin
+    public int startExam(@RequestParam int examId, @RequestParam int teacherId, HttpSession session){
+        //1. найти адрес клиента у maplogind
         ServiceInstance serviceInstance = Services.MAPLOGIN.pickRandomInstance(discoveryClient);
         URL url = serviceInstance.getUri().toURL();
         url = new URL(url.toString()+"/exams/getExam");
@@ -72,7 +98,6 @@ public class UIController {
         String response ="no response";
 
         if (loginResponse.getStatusCode() == HttpStatus.OK) {
-            ObjectMapper objectMapper = new ObjectMapper();
             Exam exam = objectMapper.readValue(loginResponse.getBody(), Exam.class);
 
             Services service = Services.getServiceById(exam.getServiceName());
@@ -90,15 +115,16 @@ public class UIController {
             ResponseEntity<String> holderResponce = holderTemplate.exchange(examHolderURL.toString(), HttpMethod.GET, holderEntity, String.class);
             //Шаг 2 - забрать у этого сервиса экзамен!
 
-            if (loginResponse.getStatusCode() == HttpStatus.OK) {
+            if (holderResponce.getStatusCode() == HttpStatus.OK) {
                 ExamData examData = objectMapper.readValue(holderResponce.getBody(), ExamData.class);
                 session.setAttribute("examData", examData);
+                return examData.getTasks().size();
                //return objectMapper.readValue(holderResponce.getBody(), ExamData.class);
             }
             else throw new RuntimeException("Bad exam response");
         } else if (loginResponse.getStatusCode() == HttpStatus.UNAUTHORIZED) {
             throw new RuntimeException("exam not found!");
         }
-        return null;
+        return 0;
     }
 }
